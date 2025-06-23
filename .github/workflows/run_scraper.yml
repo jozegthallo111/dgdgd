@@ -1,4 +1,4 @@
-name: Run Pokémon Card Scraper
+name: Pokémon Card Scraper
 
 on:
   workflow_dispatch:
@@ -6,59 +6,56 @@ on:
     branches: [ main ]
 
 jobs:
-  scrape-cards:
+  scrape:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
+      - name: 🛎️ Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Verify files
+      - name: 🔍 Verify files
         run: |
-          echo "Repository structure:"
+          echo "Workspace: ${{ github.workspace }}"
           ls -R
-          echo "Scraper contents:"
-          ls -la scraper/
+          [ -f scraper/scraper.py ] || exit 1
+          [ -f requirements.txt ] || exit 1
 
-      - name: Install Chrome and Chromedriver
+      - name: 🛠️ Install Chrome
         run: |
           sudo apt update
-          sudo apt install -y wget unzip curl gnupg libglib2.0-0 libnss3 libxss1 \
-            libatk-bridge2.0-0 libgtk-3-0 libu2f-udev libvulkan1 libxi6 libxtst6 \
-            fonts-liberation xdg-utils
-          
-          # Install Chrome
-          wget https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/124.0.6367.91/linux64/chrome-linux64.zip
-          unzip chrome-linux64.zip
-          sudo mv chrome-linux64 /opt/google
-          sudo ln -sf /opt/google/chrome-linux64/chrome /usr/bin/google-chrome
-          
-          # Install Chromedriver
-          wget https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/124.0.6367.91/linux64/chromedriver-linux64.zip
-          unzip chromedriver-linux64.zip
-          sudo mv chromedriver-linux64/chromedriver /usr/local/bin/
+          sudo apt install -y wget unzip libglib2.0-0 libnss3 libxss1
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome-stable_current_amd64.deb
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: 🚀 Install Chromedriver
+        run: |
+          CHROME_VERSION=$(google-chrome --version | awk '{print $3}')
+          DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+          wget "https://chromedriver.storage.googleapis.com/$DRIVER_VERSION/chromedriver_linux64.zip"
+          unzip chromedriver_linux64.zip
+          sudo mv chromedriver /usr/local/bin/
           sudo chmod +x /usr/local/bin/chromedriver
 
-      - name: Install Python dependencies
+      - name: 📦 Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Scraper
+      - name: ▶️ Run scraper
         run: |
           cd ${{ github.workspace }}
-          python scraper/scraper.py
+          python -m scraper.scraper
 
-      - name: Upload Results
+      - name: 📤 Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: pokemon-card-prices
+          name: pokemon-cards
           path: |
             allcorectpricees.csv
             allcorectpricees.zip
-          if-no-files-found: error
